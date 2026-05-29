@@ -22,20 +22,6 @@ RDM/
 `-- .gitignore             Keeps datasets and artifacts out of Git
 ```
 
-## Local Folders Not Committed
-
-The following folders are expected to exist locally when you run the project, but they are ignored and should not be uploaded to GitHub:
-
-```text
-data/          Original drawing PNG files
-labels/        Generated label mapping files
-augmented/     Synthetic training images from augment.py
-models/        DINOv2 / ArcFace indexes, checkpoints, logs, trained weights
-test/          Local test/query images
-__pycache__/   Python bytecode cache
-```
-
-Large model files such as `*.pt`, `*.pth`, `*.onnx`, `*.npz`, `*.h5`, and training outputs such as `runs/` are also ignored.
 
 ## Requirements
 
