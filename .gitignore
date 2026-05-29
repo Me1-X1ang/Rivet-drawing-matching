@@ -1,0 +1,33 @@
+__pycache__/
+*.py[cod]
+
+# Local environments
+.venv/
+venv/
+env/
+
+# Datasets and generated training data
+data/
+data - 副本/
+dataset/
+datasets/
+labels/
+augmented/
+test/
+
+# Model, training, and inference artifacts
+models/
+runs/
+weights/
+*.pt
+*.pth
+*.onnx
+*.npz
+*.h5
+*.hdf5
+*.ckpt
+
+# Logs and temporary outputs
+*.log
+tmp/
+temp/
