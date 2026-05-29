@@ -340,14 +340,3 @@ For ArcFace:
 python inference.py --mode arcface --model models\best.pth --rebuild
 ```
 
-## GitHub Upload Notes
-
-This repository is prepared so only source code and project documentation are uploaded. The dataset and generated artifacts remain local because they are listed in `.gitignore`.
-
-Before pushing to GitHub, verify the staged or tracked files with:
-
-```bash
-git status --short --ignored
-```
-
-You should see code and documentation as tracked files, while dataset folders appear as ignored.
