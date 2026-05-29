@@ -7,7 +7,7 @@ The project supports two retrieval paths:
 - **DINOv2 zero-shot retrieval**: works without training. It extracts embeddings from each drawing and the query photo, then searches by cosine similarity.
 - **ArcFace retrieval**: uses augmented drawing images to train a metric-learning model, then searches with trained embeddings.
 
-This repository intentionally does **not** include datasets, generated images, trained models, or cached indexes. Those files are local artifacts and are ignored by Git.
+This repository intentionally does **not** include datasets, generated images, trained models, or cached indexes. 
 
 ## What Is Included
 
