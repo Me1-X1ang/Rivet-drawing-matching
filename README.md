@@ -19,8 +19,6 @@ RDM/
 |-- inference.py           Main search/inference entry point
 |-- augment.py             Synthetic image augmentation for training
 |-- train.py               ArcFace training script
-|-- recrop.py              Drawing subject extraction / recropping utility
-|-- run.bat                Windows menu launcher
 `-- .gitignore             Keeps datasets and artifacts out of Git
 ```
 
