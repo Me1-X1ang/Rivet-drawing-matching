@@ -59,7 +59,7 @@ If you clone or move the project to another directory, update `Config.PROJECT_DI
 Put engineering drawing images in:
 
 ```text
-D:\Project\RDM\data\
+Project\RDM\data\
 ```
 
 Expected file format:
