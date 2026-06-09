@@ -1,342 +1,249 @@
-# RDM - Rivet Drawing Matcher
+RDM - Rivet Drawing Matcher
+Overview
 
-RDM is an image retrieval project for matching a damaged rivet or part photo back to the most likely engineering drawing in a local drawing library.
+RDM (Rivet Drawing Matcher) is an experimental industrial image retrieval system designed to identify the most likely engineering drawing corresponding to a photographed rivet or mechanical component.
 
-The project supports two retrieval paths:
+In manufacturing and maintenance scenarios, operators may encounter damaged, corroded, or unidentified parts whose drawing numbers are unavailable. Locating the correct engineering drawing often requires manually searching through large drawing repositories, which is time-consuming and heavily dependent on domain expertise.
 
-- **DINOv2 zero-shot retrieval**: works without training. It extracts embeddings from each drawing and the query photo, then searches by cosine similarity.
-- **ArcFace retrieval**: uses augmented drawing images to train a metric-learning model, then searches with trained embeddings.
+This project explores whether modern visual representation learning techniques can bridge the gap between engineering drawings and real-world component photographs, enabling similarity-based drawing retrieval.
 
-This repository intentionally does **not** include datasets, generated images, trained models, or cached indexes. 
+Rather than focusing solely on model accuracy, the project investigates the practical challenges of cross-domain retrieval in industrial environments.
 
-## What Is Included
+Project Objectives
 
-```text
+The primary goals of this project are:
+
+Build an engineering drawing retrieval pipeline.
+Evaluate self-supervised visual features for industrial search tasks.
+Explore metric learning methods for domain-specific retrieval.
+Analyze the impact of drawing quality on retrieval performance.
+Investigate the challenges of matching real-world photographs to engineering drawings.
+Application Scenario
+
+A typical workflow is:
+
+Unknown Rivet Photo
+         │
+         ▼
+ Feature Extraction
+         │
+         ▼
+ Similarity Search
+         │
+         ▼
+ Candidate Drawings
+
+The system accepts a photograph of a rivet or mechanical component and returns the most visually similar engineering drawings from a local drawing repository.
+
+Potential applications include:
+
+Spare part identification
+Rivet drawing lookup
+Legacy drawing management
+Workshop maintenance support
+Manufacturing documentation retrieval
+System Architecture
+                    Query Image
+                          │
+                          ▼
+                 Feature Extraction
+                          │
+          ┌───────────────┴───────────────┐
+          │                               │
+          ▼                               ▼
+    DINOv2 Encoder                 ArcFace Encoder
+          │                               │
+          └───────────────┬───────────────┘
+                          ▼
+                   Embedding Vector
+                          │
+                          ▼
+                   Vector Database
+                          │
+                          ▼
+                  Similarity Retrieval
+                          │
+                          ▼
+                   Top-K Candidates
+
+The project supports two retrieval approaches.
+
+Retrieval Methods
+DINOv2 Retrieval
+
+A zero-shot retrieval pipeline based on self-supervised vision transformers.
+
+Characteristics:
+
+No training required
+Fast deployment
+Strong feature generalization
+Suitable for rapid experimentation
+
+DINOv2 embeddings are extracted from engineering drawings and stored in a vector index. Query photographs are converted into the same embedding space and compared using cosine similarity.
+
+ArcFace Retrieval
+
+A metric-learning based retrieval pipeline.
+
+The approach generates synthetic variants of engineering drawings and trains a supervised embedding model using ArcFace loss.
+
+Characteristics:
+
+Domain-specific feature learning
+Improved class separation
+Better control over embedding space
+
+The trained model is then used to build a retrieval index for similarity search.
+
+Data Processing Pipeline
+
+To improve robustness against industrial image variations, the project includes several preprocessing and augmentation stages.
+
+Drawing Recropping
+
+Engineering drawings often contain:
+
+Large borders
+Title blocks
+Revision tables
+Empty margins
+
+The recropping pipeline attempts to isolate the main component region and remove irrelevant content.
+
+Data Augmentation
+
+Synthetic image generation is used to reduce the visual gap between engineering drawings and real-world photographs.
+
+Augmentations include:
+
+Rotation
+Scaling
+Perspective transformation
+Blur
+Noise injection
+Brightness variation
+Texture overlays
+Scratch simulation
+Rust-like color distortion
+Random erasing
+Technology Stack
+Deep Learning
+PyTorch
+TorchVision
+DINOv2
+ArcFace
+Computer Vision
+OpenCV
+Pillow
+Retrieval
+FAISS
+Cosine Similarity Search
+Utilities
+NumPy
+tqdm
+Project Structure
 RDM/
-|-- README.md              Project documentation
-|-- requirements.txt       Python dependencies
-|-- utils.py               Shared config, labels, feature extraction, vector index
-|-- inference.py           Main search/inference entry point
-|-- augment.py             Synthetic image augmentation for training
-|-- train.py               ArcFace training script
-`-- .gitignore             Keeps datasets and artifacts out of Git
-```
+│
+├── inference.py
+├── train.py
+├── augment.py
+├── recrop.py
+├── utils.py
+│
+├── data/
+├── augmented/
+├── labels/
+├── models/
+│
+├── requirements.txt
+└── README.md
+Key Technical Challenges
 
+One of the primary goals of this project was to investigate why industrial retrieval systems often perform significantly worse than expected despite using modern deep learning models.
 
-## Requirements
+During experimentation, the retrieval performance did not reach production-level accuracy.
 
-- Windows is the assumed environment for the current path defaults.
-- Python 3.10+ is recommended.
-- A CUDA-capable GPU is recommended for ArcFace training, but DINOv2 retrieval can run on CPU.
-- First-time DINOv2 usage downloads model weights through `torch.hub`.
+Analysis showed that the dominant limitation was data quality rather than model architecture.
 
-Install dependencies:
+Noisy Engineering Drawings
 
-```bash
-pip install -r requirements.txt
-```
+The drawing repository contained several issues:
 
-Equivalent manual install:
+Large borders occupied substantial image area
+Text annotations dominated visual content
+Some drawings contained little or no actual component geometry
+Drawing styles were inconsistent
+Certain files were effectively invalid samples
 
-```bash
-pip install torch torchvision opencv-python pillow numpy tqdm faiss-cpu
-```
+As a result, feature extractors frequently focused on text regions, tables, and layout structures instead of the component itself.
 
-If `faiss-cpu` is unavailable on your machine, the project falls back to a NumPy similarity search.
+Cross-Domain Gap
 
-## Important Path Configuration
+A significant visual gap existed between:
 
-The current project path is hardcoded in [`utils.py`](utils.py):
+Engineering Drawings
+Clean
+High contrast
+Structured
+CAD-like appearance
+Real Component Photographs
+Rusted
+Damaged
+Blurred
+Occluded
+Complex backgrounds
 
-```python
-PROJECT_DIR = Path(r"D:\Project\RDM")
-```
+This domain discrepancy proved to be a major challenge for retrieval accuracy.
 
-If you clone or move the project to another directory, update `Config.PROJECT_DIR` in `utils.py` before running the scripts.
+Model Limitations
 
-## Dataset Layout
+Although DINOv2 and ArcFace provided meaningful feature representations, they could not fully compensate for:
 
-Put engineering drawing images in:
+Poor-quality source drawings
+Missing component information
+Domain mismatch
+Limited dataset scale
 
-```text
-Project\RDM\data\
-```
+The experiments suggested that improving dataset quality would likely yield larger gains than increasing model complexity.
 
-Expected file format:
+Experimental Findings
 
-```text
-data/
-|-- D000001.png
-|-- D000002.png
-|-- D000003.png
-`-- ...
-```
+Several observations emerged during development:
 
-The drawing ID is taken from the file name without `.png`. For example, `D000042.png` becomes drawing ID `D000042`.
+DINOv2 provided surprisingly strong baseline retrieval performance without any training.
+ArcFace improved feature discrimination but remained constrained by dataset quality.
+Drawing preprocessing had a larger impact than expected.
+Retrieval quality depended heavily on the visibility of component structure.
+Data quality became the primary bottleneck before model architecture.
+Lessons Learned
 
-On first run, the project scans `data/` and generates:
+This project reinforced an important practical lesson in industrial computer vision:
 
-```text
-labels/labels.json
-labels/labels.csv
-```
+Data quality often matters more than model complexity.
 
-These files map drawing IDs to numeric class indexes.
+While modern architectures such as Vision Transformers and metric-learning models are powerful, their effectiveness is fundamentally limited by the quality and consistency of the underlying data.
 
-## Quick Start: DINOv2 Search
+Future improvements would focus on:
 
-DINOv2 mode is the fastest way to start because it does not require training.
+Automatic removal of invalid drawings
+Text and border suppression
+Better component segmentation
+Domain adaptation techniques
+Larger industrial datasets
+Multi-modal retrieval approaches
+Future Work
 
-```bash
-cd D:\Project\RDM
-python inference.py --query path\to\query_photo.jpg
-```
+Potential future directions include:
 
-Return more candidates:
+Vision-language retrieval models
+Contrastive learning frameworks
+Industrial-domain pretraining
+OCR-aware drawing filtering
+Hybrid image + metadata retrieval
+Human-in-the-loop retrieval refinement
+Repository Status
 
-```bash
-python inference.py --query path\to\query_photo.jpg --top_k 10
-```
+This project should be considered an experimental proof-of-concept rather than a production-ready system.
 
-Show matched drawing file paths:
-
-```bash
-python inference.py --query path\to\query_photo.jpg --verbose
-```
-
-Use interactive mode:
-
-```bash
-python inference.py --interactive
-```
-
-Rebuild the drawing index after adding, removing, or replacing drawings:
-
-```bash
-python inference.py --rebuild
-```
-
-The first DINOv2 run will:
-
-1. Scan `data/`.
-2. Build label mappings.
-3. Download/load the DINOv2 model.
-4. Extract drawing embeddings.
-5. Save the index under `models/`.
-6. Search the query image and print the top matches.
-
-## ArcFace Workflow
-
-ArcFace mode is intended for cases where zero-shot DINOv2 retrieval is not accurate enough and you want to train a domain-specific embedding model.
-
-### 1. Generate Augmented Images
-
-```bash
-python augment.py --num 50
-```
-
-Useful options:
-
-```bash
-python augment.py --num 50 --workers 2
-python augment.py --num 20 --limit 100
-python augment.py --data D:\Project\RDM\data --output D:\Project\RDM\augmented
-```
-
-`augment.py` creates synthetic variants for each drawing and writes an index file:
-
-```text
-augmented/augment_index.json
-```
-
-The augmentation pipeline includes geometric changes, blur, noise, texture overlays, rust-like color changes, scratches, brightness changes, random erasing, and background changes.
-
-### 2. Train ArcFace
-
-```bash
-python train.py
-```
-
-The training script uses augmented images from `augmented/` and saves outputs under `models/`, including:
-
-```text
-models/best.pth
-models/checkpoint_epoch20.pth
-models/checkpoint_epoch40.pth
-models/checkpoint_epoch60.pth
-models/training_log.csv
-```
-
-Supported backbone choices:
-
-```bash
-python train.py --backbone resnet50
-python train.py --backbone efficientnet
-```
-
-Resume from a checkpoint:
-
-```bash
-python train.py --resume models\checkpoint_epoch20.pth
-```
-
-Current training note: `train.py` defines CLI arguments for `--epochs`, `--batch`, and `--workers`, but the current implementation still uses fixed internal loop values for epochs, batch size, and workers. If you need to tune those values, update the relevant constants inside `train.py`.
-
-### 3. Search With ArcFace
-
-```bash
-python inference.py --mode arcface --model models\best.pth --query path\to\query_photo.jpg
-```
-
-Interactive ArcFace mode:
-
-```bash
-python inference.py --mode arcface --model models\best.pth --interactive
-```
-
-Rebuild the ArcFace index:
-
-```bash
-python inference.py --mode arcface --model models\best.pth --rebuild
-```
-
-## Recropping Drawings
-
-`recrop.py` extracts the main drawing subject from original drawing images and writes normalized 1024 x 1024 outputs.
-
-Preview a small batch:
-
-```bash
-python recrop.py --input D:\Project\RDM\data --output D:\Project\RDM\data_clean --preview 20 --debug
-```
-
-Process the full folder:
-
-```bash
-python recrop.py --input D:\Project\RDM\data --output D:\Project\RDM\data_clean
-```
-
-Tuning options:
-
-```bash
-python recrop.py --dilate-ratio 0.08 --dilate-iter 3
-```
-
-If the output looks good, copy or move the cleaned PNG files into `data/`, then rebuild the retrieval index:
-
-```bash
-python inference.py --rebuild
-```
-
-## Windows Launcher
-
-The project includes a simple batch menu:
-
-```bat
-run.bat
-```
-
-It provides shortcuts for DINOv2 query, interactive search, index rebuild, ArcFace query, augmentation, and training.
-
-## CLI Reference
-
-### `inference.py`
-
-```text
---query, -q          Query image path
---interactive, -i    Run continuous interactive search
---rebuild, -r        Force index rebuild
---mode, -m           Retrieval mode: dinov2 or arcface
---model              ArcFace model path
---top_k, -k          Number of returned matches
---verbose, -v        Print matched drawing paths
-```
-
-### `augment.py`
-
-```text
---num                Variants generated per drawing
---workers            Parallel worker process count
---data               Input drawing directory
---output             Output augmented-image directory
---limit              Only process the first N drawings; 0 means all
-```
-
-### `train.py`
-
-```text
---lr                 Learning rate
---arcface-s          ArcFace scale
---arcface-m          ArcFace angular margin
---backbone           resnet50 or efficientnet
---resume             Checkpoint path to resume from
-```
-
-### `recrop.py`
-
-```text
---input              Input PNG folder
---output             Output folder
---preview            Process only a sample batch
---debug              Save debug images with detected crop boxes
---dilate-ratio       Morphological dilation kernel ratio
---dilate-iter        Dilation iteration count
-```
-
-## Typical Workflow
-
-```text
-1. Put original drawings into data/
-2. Run DINOv2 search:
-   python inference.py --query photo.jpg
-3. If drawings changed:
-   python inference.py --rebuild
-4. If DINOv2 accuracy is not enough:
-   python augment.py --num 50
-   python train.py
-   python inference.py --mode arcface --model models\best.pth --query photo.jpg
-```
-
-## Troubleshooting
-
-### `data/` has no PNG files
-
-Make sure the original drawing files are placed directly under `data/` and use `.png` extension.
-
-### DINOv2 downloads slowly
-
-The first DINOv2 run downloads model weights through PyTorch Hub. Network speed depends on your GitHub access. After the first successful download, PyTorch caches the model locally.
-
-### `faiss-cpu` cannot be installed
-
-The code can still run with the NumPy fallback. FAISS is faster, but not mandatory for small and medium drawing libraries.
-
-### ArcFace model does not exist
-
-Run augmentation and training first:
-
-```bash
-python augment.py --num 50
-python train.py
-```
-
-Then use:
-
-```bash
-python inference.py --mode arcface --model models\best.pth --query photo.jpg
-```
-
-### Results are stale after changing drawings
-
-Rebuild the index:
-
-```bash
-python inference.py --rebuild
-```
-
-For ArcFace:
-
-```bash
-python inference.py --mode arcface --model models\best.pth --rebuild
-```
-
+Its primary value lies in exploring industrial cross-domain retrieval challenges and understanding the practical limitations imposed by real-world engineering data.
